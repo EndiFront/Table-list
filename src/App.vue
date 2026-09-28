@@ -11,16 +11,28 @@ const addFigure = (type) => {
     y: 100 + figures.value.length * 20,
     width: 150,
     height: 150,
+    text: type === "text" ? "Дважды кликните для ввода" : "",
   };
   figures.value.push(newFigure);
 };
-const bim = ref("Двигайте мышь...");
+
+const bim = ref("");
 
 document.addEventListener("mousemove", (event) => {
   const clientX = event.clientX;
   const clientY = event.clientY;
   bim.value = `X: ${clientX}, Y: ${clientY}`;
 });
+
+const selectedId = ref(null);
+const selectFigure = (id) => {
+  selectedId.value = id;
+};
+const deselectAll = (event) => {
+  if (event.target.id === "main-canvas") {
+    selectedId.value = null;
+  }
+};
 </script>
 
 <template>
@@ -43,11 +55,15 @@ document.addEventListener("mousemove", (event) => {
     </nav>
 
     <div class="canvas-viewport">
-      <div class="canvas-board" id="main-canvas">
+      <div class="canvas-board" id="main-canvas" @click="deselectAll">
         <div
           v-for="fig in figures"
           :key="fig.id"
-          :class="['figure', `figure--${fig.type}`]"
+          :class="[
+            'figure',
+            `figure--${fig.type}`,
+            { 'figure--selected': fig.id === selectedId },
+          ]"
           :style="{
             position: 'absolute',
             left: fig.x + 'px',
@@ -55,11 +71,24 @@ document.addEventListener("mousemove", (event) => {
             width: fig.type !== 'line' ? fig.width + 'px' : 'auto',
             height: fig.type !== 'line' ? fig.height + 'px' : 'auto',
           }"
+          @click.stop="selectFigure(fig.id)"
         >
-          <template v-if="fig.type === 'text'">Редактируемый текст</template>
+          <!-- ИСПРАВЛЕНО: Только один шаблон для каждого типа фигуры -->
+          <template v-if="fig.type === 'text'">
+            <div
+              contenteditable="true"
+              class="editable-text"
+              @input="fig.text = $event.target.innerText"
+              @blur="if (fig.text.trim() === '') fig.text = 'Пустой текст';"
+            >
+              {{ fig.text }}
+            </div>
+          </template>
+          
           <template v-if="fig.type === 'image'"></template>
           <template v-if="fig.type === 'rectangle'"></template>
           <template v-if="fig.type === 'circle'"></template>
+          
           <template v-if="fig.type === 'line'">
             <div class="line-shape"></div>
           </template>
@@ -70,6 +99,7 @@ document.addEventListener("mousemove", (event) => {
 </template>
 
 <style scoped>
+/* Базовые стили фигур */
 .figure {
   display: flex;
   align-items: center;
@@ -89,11 +119,43 @@ document.addEventListener("mousemove", (event) => {
   border-radius: 4px;
 }
 
+/* Стили выделенного элемента */
+.figure--selected {
+  border: 2px dashed #e74c3c !important;
+  box-shadow: 0 0 12px rgba(231, 76, 60, 0.5);
+  outline: 1px solid #e74c3c;
+  cursor: move;
+}
+
+/* Настройки текстового блока */
 .figure--text {
-  background: transparent;
+  background: transparent !important;
   border: 1px dashed #7f8c8d;
 }
 
+.figure--text.figure--selected {
+  border: 2px dashed #e74c3c !important;
+}
+
+/* ИСПРАВЛЕНО: Стили для корректного отображения и переноса текста */
+.editable-text {
+  width: 100%;
+  height: 100%;
+  padding: 8px;
+  outline: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  
+  /* Правила против сжатия текста в столбик: */
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  cursor: text;
+}
+
+/* Линия */
 .figure--line {
   background: transparent;
   border: none;
@@ -103,6 +165,8 @@ document.addEventListener("mousemove", (event) => {
   height: 4px;
   background-color: #e74c3c;
 }
+
+/* Стили окружения */
 .workspace {
   display: flex;
   width: 100vw;
@@ -123,7 +187,6 @@ document.addEventListener("mousemove", (event) => {
   gap: 12px;
   z-index: 10;
 }
-
 .toolbar__btn {
   width: 64px;
   height: 64px;
